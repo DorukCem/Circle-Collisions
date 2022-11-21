@@ -21,6 +21,7 @@ class Ball:
       self.acc_y = 0
       self.radius = radius
       self.angle = 180
+      self.mass = (radius **2) 
 
 
    #Function to get end positions of the radius line in order to draw it
@@ -54,7 +55,7 @@ class Ball:
       if self.y < 0: self.y += HEIGHT
       if self.y >HEIGHT: self.y -= HEIGHT
 
-      if self.velocity_x**2 + self.velocity_y**2 < 0.3:
+      if self.velocity_x**2 + self.velocity_y**2 < 0.03:
          self.velocity_y = 0
          self.velocity_x = 0
 
@@ -76,6 +77,35 @@ def resolve_static_collision(ball, target):
    target.x += overlap * (ball.x - target.x )/distance
    target.y += overlap * (ball.y - target.y)/distance
 
+def resolve_dynamic_collision(ball, target):
+   distance = math.sqrt((ball.x - target.x)**2 + (ball.y - target.y)**2)
+
+   # Normal vector
+   normal_x = (target.x- ball.x) / distance
+   normal_y = (target.y- ball.y) / distance
+
+   # Tanget vector
+   tang_x = -normal_y
+   tang_y = normal_x
+
+   # Dot Product Tangent
+   dp_tan_ball = ball.velocity_x * tang_x + ball.velocity_y * tang_y
+   dp_tan_target = target.velocity_x * tang_x + target.velocity_y * tang_y
+
+   #Dot Product Normal
+   dp_norm_ball = ball.velocity_x * normal_x + ball.velocity_y * normal_y
+   dp_norm_target = target.velocity_x * normal_x + target.velocity_y * normal_y
+
+   # Conservation of momentum
+   momentum_ball = (dp_norm_ball * (ball.mass - target.mass) + 2 * target.mass * dp_norm_target)/(ball.mass + target.mass)
+   momentum_target = (dp_norm_target * (target.mass - ball.mass) + 2 * ball.mass * dp_norm_ball)/(ball.mass + target.mass)
+
+   #update ball velocities
+   ball.velocity_x = (tang_x * dp_tan_ball + normal_x * momentum_ball)
+   ball.velocity_y = (tang_y * dp_tan_ball + normal_y * momentum_ball)
+   target.velocity_x = (tang_x * dp_tan_target + normal_x * momentum_target)
+   target.velocity_y = (tang_y * dp_tan_target + normal_y * momentum_target)
+
 
 #check for collision for every ball againts every other ball
 def collision_check(balls):
@@ -84,11 +114,10 @@ def collision_check(balls):
       for target in balls:
          if ball is target:
             continue
-         
          #comparision if distance between circles is smaller than the sum of their raidius
          if (ball.radius + target.radius)**2 >= (ball.x - target.x)**2 + (ball.y - target.y)**2:
             list_of_collisions.append((ball, target))
-            resolve_static_collision(ball, target)
+
    return list_of_collisions.copy()
 
 
@@ -113,6 +142,7 @@ while True:
          selected_ball = None
       
       if selected_ball:
+         selected_ball.velocity_x = 0 ; selected_ball.velocity_y = 0
          selected_ball.x, selected_ball.y = pygame.mouse.get_pos()
 
       if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
@@ -121,7 +151,7 @@ while True:
                cue_ball = ball
                break
                
-      if event.type == pygame.MOUSEBUTTONUP and event.button == 3:
+      if event.type == pygame.MOUSEBUTTONUP and event.button == 3 and cue_ball:
          cue_ball.velocity_x = 0.1* (cue_ball.x - pygame.mouse.get_pos()[0])
          cue_ball.velocity_y = 0.1* (cue_ball.y - pygame.mouse.get_pos()[1])
          cue_ball = None         
@@ -129,20 +159,20 @@ while True:
    
    #Background Color
    screen.fill((10 ,10 ,10))
+   
    for ball in balls_list:
       ball.update_ball()
       ball.draw()
-
-   for pair in colliding_balls:
-      pygame.draw.line(screen, (200,0,0), pair[0].get_coordinate(), pair[1].get_coordinate())
+      
+      colliding_balls = collision_check(balls_list)
+      for pair in colliding_balls:
+         pygame.draw.line(screen, (200,0,0), pair[0].get_coordinate(), pair[1].get_coordinate()) 
+         resolve_static_collision(pair[0], pair[1])
+         resolve_dynamic_collision(pair[0], pair[1])
 
    if cue_ball: 
       pygame.draw.line(screen, (255,255,0), cue_ball.get_coordinate(), pygame.mouse.get_pos())
 
    
-   colliding_balls = collision_check(balls_list)
-
-
-
    pygame.display.update()
    clock.tick(60)
