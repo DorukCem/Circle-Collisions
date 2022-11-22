@@ -21,7 +21,7 @@ class Ball:
       self.acc_y = 0
       self.radius = radius
       self.angle = 180
-      self.mass = (radius **2) 
+      self.mass = (radius **2) /100
 
 
    #Function to get end positions of the radius line in order to draw it
@@ -78,51 +78,48 @@ def resolve_static_collision(ball, target):
    target.y += overlap * (ball.y - target.y)/distance
 
 def resolve_dynamic_collision(ball, target):
-   distance = math.sqrt((ball.x - target.x)**2 + (ball.y - target.y)**2)
+   distance = ball.radius + target.radius
+   m1 = ball.mass
+   m2 = target.mass
 
-   # Normal vector
-   normal_x = (target.x- ball.x) / distance
-   normal_y = (target.y- ball.y) / distance
+   # Normal unit vector
+   nx = (target.x- ball.x) / distance
+   ny = (target.y- ball.y) / distance
 
-   # Tanget vector
-   tang_x = -normal_y
-   tang_y = normal_x
+   # Tanget unit vector
+   tx = -ny
+   ty = nx
 
-   # Dot Product Tangent
-   dp_tan_ball = ball.velocity_x * tang_x + ball.velocity_y * tang_y
-   dp_tan_target = target.velocity_x * tang_x + target.velocity_y * tang_y
+   #normal velocity vectors 
+   norm_vel_ball = ball.velocity_x * nx + ball.velocity_y * ny
+   norm_vel_target = target.velocity_x * nx + target.velocity_y * ny
 
-   #Dot Product Normal
-   dp_norm_ball = ball.velocity_x * normal_x + ball.velocity_y * normal_y
-   dp_norm_target = target.velocity_x * normal_x + target.velocity_y * normal_y
+   #tangetial velocity vectors
+   tgt_vel_ball = ball.velocity_x * tx + ball.velocity_y * ty
+   tgt_vel_target = target.velocity_x * tx + target.velocity_y * ty
 
-   # Conservation of momentum
-   momentum_ball = (dp_norm_ball * (ball.mass - target.mass) + 2 * target.mass * dp_norm_target)/(ball.mass + target.mass)
-   momentum_target = (dp_norm_target * (target.mass - ball.mass) + 2 * ball.mass * dp_norm_ball)/(ball.mass + target.mass)
-
-   #update ball velocities
-   ball.velocity_x = (tang_x * dp_tan_ball + normal_x * momentum_ball)
-   ball.velocity_y = (tang_y * dp_tan_ball + normal_y * momentum_ball)
-   target.velocity_x = (tang_x * dp_tan_target + normal_x * momentum_target)
-   target.velocity_y = (tang_y * dp_tan_target + normal_y * momentum_target)
+   ball.velocity_x = tgt_vel_ball * tx + nx*(norm_vel_ball * (m1-m2) + 2 * m2 * norm_vel_target)/(m1+m2)
+   ball.velocity_y = tgt_vel_ball * ty + ny*(norm_vel_ball * (m1-m2) + 2 * m2 * norm_vel_target)/(m1+m2)
+   target.velocity_x = tgt_vel_target * tx + nx*(norm_vel_target * (m2 - m1) + 2 * m1 * norm_vel_ball)/(m1+m2)
+   target.velocity_y = tgt_vel_target * ty + ny*(norm_vel_target * (m2 - m1) + 2* m1 * norm_vel_ball)/(m1+m2)
 
 
 #check for collision for every ball againts every other ball
 def collision_check(balls):
    list_of_collisions = []
-   for ball in balls:
-      for target in balls:
-         if ball is target:
-            continue
+   for i in range(len(balls)):
+      for  j in range(i+1, len(balls)):
+         ball = balls[i]
+         target = balls[j]
          #comparision if distance between circles is smaller than the sum of their raidius
          if (ball.radius + target.radius)**2 >= (ball.x - target.x)**2 + (ball.y - target.y)**2:
             list_of_collisions.append((ball, target))
 
-   return list_of_collisions.copy()
+   return list_of_collisions
 
 
 colliding_balls = []
-balls_list = [Ball(300, 400, 60), Ball(500, 400, 60) ,Ball(700,400,40), Ball(400,400,40)]
+balls_list = [Ball(300, 400, 60), Ball(500, 400, 60), Ball(600, 400, 20), Ball(700, 400, 20), Ball(900, 400, 40)]
 selected_ball = None
 cue_ball = None
 
@@ -163,6 +160,7 @@ while True:
    for ball in balls_list:
       ball.update_ball()
       ball.draw()
+      
       
       colliding_balls = collision_check(balls_list)
       for pair in colliding_balls:
